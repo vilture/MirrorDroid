@@ -54,8 +54,8 @@ python build.py
 
 ## 📸 V4L2 (Linux)
 
-Для использования Android камеры как веб-камеры:
-
+Для использования Android камеры как веб-камеры:  
+`Пример для Ubuntu like системы`
 ```bash
 sudo apt install v4l2loopback-dkms
 sudo modprobe v4l2loopback exclusive_caps=1
