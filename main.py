@@ -81,7 +81,7 @@ def main():
     # Создаем приложение
     app = QApplication(sys.argv)
     app.setApplicationName("MirrorDroid")
-    app.setApplicationVersion("1.0")
+    app.setApplicationVersion("1.0.1")
     app.setOrganizationName("MirrorDroid")
 
     # Проверяем зависимости

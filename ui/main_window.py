@@ -16,7 +16,7 @@ from ui.device_widget import DeviceWidget
 from ui.settings_dialog import SettingsDialog
 
 # Версия приложения
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 
 
 class MainWindow(QMainWindow):
@@ -99,19 +99,63 @@ class MainWindow(QMainWindow):
         # Кнопка обновления
         self.refresh_button = QPushButton(self.localization_manager.tr("refresh"))
         self.refresh_button.clicked.connect(self.refresh_devices)
+        self.refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+        """)
         toolbar_layout.addWidget(self.refresh_button)
 
-        # Поле ввода IP
+        # Поле ввода IP:порт
         toolbar_layout.addWidget(QLabel(self.localization_manager.tr("ip_label")))
         self.ip_input = QLineEdit()
-        self.ip_input.setPlaceholderText(self.localization_manager.tr("ip_placeholder"))
-        self.ip_input.setMaximumWidth(150)
+        self.ip_input.setPlaceholderText("192.168.1.1:5555")
+        self.ip_input.setMaximumWidth(180)
         toolbar_layout.addWidget(self.ip_input)
 
         # Кнопка подключения
         self.connect_button = QPushButton(self.localization_manager.tr("connect"))
         self.connect_button.clicked.connect(self.connect_device)
+        self.connect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+        """)
         toolbar_layout.addWidget(self.connect_button)
+
+        # Кнопка QR подключения
+        self.qr_connect_button = QPushButton(self.localization_manager.tr("qr_connect"))
+        self.qr_connect_button.clicked.connect(self.show_qr_connection)
+        self.qr_connect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        toolbar_layout.addWidget(self.qr_connect_button)
 
         # Кнопка автообновления
         self.auto_refresh_check = QCheckBox(self.localization_manager.tr("auto_refresh"))
@@ -122,6 +166,19 @@ class MainWindow(QMainWindow):
         # Кнопка настроек
         self.settings_button = QPushButton(self.localization_manager.tr("settings"))
         self.settings_button.clicked.connect(self.show_scrcpy_settings)
+        self.settings_button.setStyleSheet("""
+            QPushButton {
+                background-color: #6f42c1;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5a32a3;
+            }
+        """)
         toolbar_layout.addWidget(self.settings_button)
 
         # Кнопка остановки всех scrcpy
@@ -208,6 +265,7 @@ class MainWindow(QMainWindow):
         self.scrcpy_manager.process_started.connect(self.on_scrcpy_started)
         self.scrcpy_manager.process_finished.connect(self.on_scrcpy_finished)
         self.scrcpy_manager.process_error.connect(self.on_scrcpy_error)
+        self.scrcpy_manager.stderr_output.connect(self.on_scrcpy_stderr)
 
         # Убираем соединения с Network Scanner
 
@@ -285,17 +343,49 @@ class MainWindow(QMainWindow):
         """Останавливает все процессы scrcpy"""
         self.scrcpy_manager.stop_all_scrcpy()
         self.status_bar.showMessage(self.localization_manager.tr("messages.all_scrcpy_stopped"), 3000)
+        self.refresh_devices()  # Обновляем список устройств после остановки
 
     def connect_device(self):
-        """Подключается к устройству по IP"""
-        ip = self.ip_input.text().strip()
+        """Подключается к устройству по IP:порт"""
+        input_text = self.ip_input.text().strip()
+        if not input_text:
+            QMessageBox.warning(self, self.localization_manager.tr("messages.error"),
+                                self.localization_manager.tr("messages.enter_ip"))
+            return
+
+        # Парсим IP:порт
+        if ':' in input_text:
+            parts = input_text.split(':')
+            if len(parts) != 2:
+                QMessageBox.warning(self, self.localization_manager.tr("messages.error"),
+                                    self.localization_manager.tr("messages.invalid_format"))
+                return
+            ip = parts[0].strip()
+            port_text = parts[1].strip()
+        else:
+            # Если порт не указан, используем 5555 по умолчанию
+            ip = input_text
+            port_text = "5555"
+
         if not ip:
             QMessageBox.warning(self, self.localization_manager.tr("messages.error"),
                                 self.localization_manager.tr("messages.enter_ip"))
             return
 
+        # Валидация порта
+        try:
+            port = int(port_text)
+            if port < 1 or port > 65535:
+                QMessageBox.warning(self, self.localization_manager.tr("messages.error"),
+                                    self.localization_manager.tr("messages.invalid_port"))
+                return
+        except ValueError:
+            QMessageBox.warning(self, self.localization_manager.tr("messages.error"),
+                                self.localization_manager.tr("messages.invalid_port"))
+            return
+
         self.status_bar.showMessage(self.localization_manager.tr("messages.connecting", ip=ip), 0)
-        success, message = self.adb_manager.connect_device(ip)
+        success, message = self.adb_manager.connect_device(ip, port)
 
         if success:
             self.status_bar.showMessage(self.localization_manager.tr("messages.device_connected", ip=ip), 3000)
@@ -318,6 +408,7 @@ class MainWindow(QMainWindow):
         """Удаляет устройство из списка"""
         self.config_manager.remove_device(device_id)
         self.status_bar.showMessage(self.localization_manager.tr("messages.device_removed", device_id=device_id), 3000)
+        self.refresh_devices()  # Обновляем список устройств
 
     def configure_device(self, device_id):
         """Настраивает устройство"""
@@ -410,6 +501,23 @@ class MainWindow(QMainWindow):
 
         dialog.exec_()
 
+    def show_qr_connection(self):
+        """Показывает диалог QR подключения"""
+        from ui.qr_connection_dialog import QRConnectionDialog
+        
+        dialog = QRConnectionDialog(
+            adb_path=self.adb_manager.adb_path,
+            parent=self,
+            localization_manager=self.localization_manager
+        )
+        dialog.device_connected.connect(self._on_qr_device_connected)
+        dialog.exec_()
+        
+    def _on_qr_device_connected(self, device_info: str):
+        """Обработчик подключения устройства через QR"""
+        self.status_bar.showMessage(self.localization_manager.tr("messages.qr_device_connected"), 3000)
+        self.refresh_devices()
+
     def save_default_settings(self, settings):
         """Сохраняет настройки по умолчанию"""
         self.config_manager.set_default_scrcpy_settings(settings)
@@ -436,13 +544,17 @@ class MainWindow(QMainWindow):
 
     def on_scrcpy_started(self, device_id, process_id):
         """Обработчик запуска scrcpy"""
-        self.status_bar.showMessage(self.localization_manager.tr("messages.scrcpy_started", device_id=device_id), 3000)
+        # Показываем сообщение о запуске только на короткое время, чтобы не перекрывать ошибки
+        self.status_bar.showMessage(self.localization_manager.tr("messages.scrcpy_started", device_id=device_id), 2000)
         self.update_status()
         self.refresh_devices()  # Обновляем отображение
 
     def on_scrcpy_finished(self, device_id, exit_code):
         """Обработчик завершения scrcpy"""
-        self.status_bar.showMessage(self.localization_manager.tr("messages.scrcpy_finished", device_id=device_id), 3000)
+        # Показываем сообщение о завершении только если нет активных ошибок
+        if exit_code == 0:  # Нормальное завершение
+            self.status_bar.showMessage(self.localization_manager.tr("messages.scrcpy_finished", device_id=device_id), 3000)
+        # Если exit_code != 0, ошибка уже показана через stderr
         self.update_status()
         self.refresh_devices()  # Обновляем отображение
 
@@ -452,6 +564,16 @@ class MainWindow(QMainWindow):
                             f"{self.localization_manager.tr('messages.error')} для {device_id}:\n{error_message}")
         self.update_status()
         self.refresh_devices()
+
+    def on_scrcpy_stderr(self, device_id, error_output):
+        """Обработчик ошибок stderr от scrcpy"""
+        # Показываем ошибку в статусбаре с высоким приоритетом
+        error_text = f"[{device_id}]: {error_output}"
+        self.status_bar.showMessage(error_text, 0)  # 0 = показывать до следующего сообщения
+        
+        # Принудительно обновляем статусбар
+        self.status_bar.update()
+        self.status_bar.repaint()
 
     def on_language_changed(self, language):
         """Обработчик изменения языка"""

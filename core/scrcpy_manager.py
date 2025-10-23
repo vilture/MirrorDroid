@@ -15,6 +15,7 @@ class ScrcpyManager(QObject):
     process_started = pyqtSignal(str, int)  # device_id, process_id
     process_finished = pyqtSignal(str, int)  # device_id, exit_code
     process_error = pyqtSignal(str, str)  # device_id, error_message
+    stderr_output = pyqtSignal(str, str)  # device_id, error_output
 
     def __init__(self):
         super().__init__()
@@ -55,7 +56,7 @@ class ScrcpyManager(QObject):
             else:
                 # Debug режим или Linux - используем QProcess
                 process = QProcess()
-                process.setProcessChannelMode(QProcess.MergedChannels)
+                process.setProcessChannelMode(QProcess.SeparateChannels)  # Разделяем stdout и stderr
 
                 # Подключаем сигналы
                 process.finished.connect(
@@ -72,7 +73,7 @@ class ScrcpyManager(QObject):
                 process.readyReadStandardError.connect(
                     lambda: self._on_process_error_output(device_id, process.readAllStandardError().data().decode())
                 )
-
+                
                 # Запускаем процесс
                 process.start(cmd[0], cmd[1:])
 
@@ -230,8 +231,15 @@ class ScrcpyManager(QObject):
         mouse_mode = control.get('mouse')
         if mouse_mode in ('uhid', 'aoa', 'sdk'):
             cmd.append(f"--mouse={mouse_mode}")
-        if control.get('gamepad', False):
-            cmd.append('-G')
+        # Настройки геймпада
+        gamepad_mode = control.get('gamepad', 'disabled')
+        if gamepad_mode == True:  # Совместимость со старыми настройками
+            gamepad_mode = 'aoa'
+        elif gamepad_mode == False:
+            gamepad_mode = 'disabled'
+        
+        if gamepad_mode in ('aoa', 'uhid'):
+            cmd.append(f"--gamepad={gamepad_mode}")
         # Для корректного ввода нелатиницы (кириллица и т.п.) предпочтительнее текстовый ввод
         # --prefer-text работает только с --keyboard=sdk
         if keyboard_mode == 'sdk' and control.get('prefer_text', False):
@@ -298,6 +306,8 @@ class ScrcpyManager(QObject):
         """Обработчик вывода ошибок процесса"""
         if error_output.strip():
             debug_print(f"⚠️ [scrcpy:{device_id}:err] {error_output.strip()}")
+            # Эмитируем сигнал для отображения в статусбаре
+            self.stderr_output.emit(device_id, error_output.strip())
 
     def _on_process_error(self, device_id: str, error):
         """Обработчик ошибки процесса"""
@@ -388,6 +398,26 @@ class ScrcpyManager(QObject):
             cmd.extend(['--camera-ar', camera['camera_ar']])
         if camera.get('camera_high_speed', False):
             cmd.append('--camera-high-speed')
+
+        # Настройки отображения
+        display = camera_settings.get('display', {})
+        rotation = display.get('rotation', 0)
+        flip = display.get('flip', False)
+        
+        # Комбинируем поворот и зеркальное отображение
+        if rotation != 0 or flip:
+            if flip:
+                orientation = f"flip{rotation}"
+            else:
+                orientation = str(rotation)
+            cmd.extend(['--display-orientation', orientation])
+            
+        if display.get('crop'):
+            cmd.extend(['--crop', display['crop']])
+        if display.get('fullscreen', False):
+            cmd.append('--fullscreen')
+        if display.get('always_on_top', False):
+            cmd.append('--always-on-top')
 
         # V4L2 настройки (только если включен)
         v4l2 = camera_settings.get('v4l2', {})

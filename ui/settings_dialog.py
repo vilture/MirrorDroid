@@ -30,7 +30,7 @@ class SettingsDialog(QDialog):
         """Инициализация интерфейса"""
         self.setWindowTitle(self.localization_manager.tr("settings"))
         self.setModal(True)
-        self.resize(600, 500)
+        self.resize(1000, 700)
 
         # Устанавливаем иконку окна
         icon_path = get_icon_path()
@@ -274,9 +274,9 @@ class SettingsDialog(QDialog):
         # Клавиатура
         self.keyboard_combo = QComboBox()
         self.keyboard_combo.addItem(self.localization_manager.tr("main_settings.control.keyboard_disabled"), "disabled")
-        self.keyboard_combo.addItem(self.localization_manager.tr("main_settings.control.keyboard_aoa"), "aoa")
         self.keyboard_combo.addItem(self.localization_manager.tr("main_settings.control.keyboard_hid"), "uhid")
         self.keyboard_combo.addItem(self.localization_manager.tr("main_settings.control.keyboard_sdk"), "sdk")
+        self.keyboard_combo.addItem(self.localization_manager.tr("main_settings.control.keyboard_aoa"), "aoa")
         self.keyboard_combo.setToolTip(self.localization_manager.tr("main_settings.control.keyboard_tooltip"))
         keyboard_label = self.localization_manager.tr("main_settings.control.keyboard")
         layout.addRow(keyboard_label, self.keyboard_combo)
@@ -284,18 +284,21 @@ class SettingsDialog(QDialog):
         # Мышь
         self.mouse_combo = QComboBox()
         self.mouse_combo.addItem(self.localization_manager.tr("main_settings.control.mouse_disabled"), "disabled")
-        self.mouse_combo.addItem(self.localization_manager.tr("main_settings.control.mouse_aoa"), "aoa")
         self.mouse_combo.addItem(self.localization_manager.tr("main_settings.control.mouse_hid"), "uhid")
         self.mouse_combo.addItem(self.localization_manager.tr("main_settings.control.mouse_sdk"), "sdk")
+        self.mouse_combo.addItem(self.localization_manager.tr("main_settings.control.mouse_aoa"), "aoa")
         self.mouse_combo.setToolTip(self.localization_manager.tr("main_settings.control.mouse_tooltip"))
         mouse_label = self.localization_manager.tr("main_settings.control.mouse")
         layout.addRow(mouse_label, self.mouse_combo)
 
         # Геймпад
-        self.gamepad_check = QCheckBox()
-        self.gamepad_check.setToolTip(self.localization_manager.tr("main_settings.control.gamepad_tooltip"))
+        self.gamepad_combo = QComboBox()
+        self.gamepad_combo.addItem(self.localization_manager.tr("main_settings.control.gamepad_disabled"), "disabled")
+        self.gamepad_combo.addItem(self.localization_manager.tr("main_settings.control.gamepad_hid"), "uhid")
+        self.gamepad_combo.addItem(self.localization_manager.tr("main_settings.control.gamepad_aoa"), "aoa")
+        self.gamepad_combo.setToolTip(self.localization_manager.tr("main_settings.control.gamepad_tooltip"))
         gamepad_label = self.localization_manager.tr("main_settings.control.gamepad")
-        layout.addRow(gamepad_label, self.gamepad_check)
+        layout.addRow(gamepad_label, self.gamepad_combo)
 
         # Предпочитать текст
         self.prefer_text_check = QCheckBox()
@@ -439,12 +442,6 @@ class SettingsDialog(QDialog):
         display_id_label = self.localization_manager.tr("main_settings.advanced.display_id")
         layout.addRow(display_id_label, self.display_id_spin)
 
-        # TCP/IP
-        self.tcpip_edit = QLineEdit()
-        self.tcpip_edit.setPlaceholderText(self.localization_manager.tr("main_settings.advanced.tcpip_placeholder"))
-        self.tcpip_edit.setToolTip(self.localization_manager.tr("main_settings.advanced.tcpip_tooltip"))
-        tcpip_label = self.localization_manager.tr("main_settings.advanced.tcpip")
-        layout.addRow(tcpip_label, self.tcpip_edit)
 
         # Выбрать USB
         self.select_usb_check = QCheckBox()
@@ -548,9 +545,16 @@ class SettingsDialog(QDialog):
                     return
             combo.setCurrentIndex(0)
 
-        set_combo_by_data(self.keyboard_combo, kb, ['disabled', 'aoa', 'uhid', 'sdk'])
-        set_combo_by_data(self.mouse_combo, ms, ['disabled', 'aoa', 'uhid', 'sdk'])
-        self.gamepad_check.setChecked(control_input.get('gamepad', False))
+        set_combo_by_data(self.keyboard_combo, kb, ['disabled', 'uhid', 'sdk', 'aoa'])
+        set_combo_by_data(self.mouse_combo, ms, ['disabled', 'uhid', 'sdk', 'aoa'])
+        # Устанавливаем режим геймпада
+        gamepad_mode = control_input.get('gamepad', 'disabled')
+        if gamepad_mode == True:  # Совместимость со старыми настройками (True = aoa)
+            gamepad_mode = 'aoa'
+        elif gamepad_mode == False:  # Совместимость со старыми настройками (False = disabled)
+            gamepad_mode = 'disabled'
+        
+        set_combo_by_data(self.gamepad_combo, gamepad_mode, ['disabled', 'uhid', 'aoa'])
         self.prefer_text_check.setChecked(control_input.get('prefer_text', False))
         self.raw_key_events_check.setChecked(control_input.get('raw_key_events', False))
         self.no_key_repeat_check.setChecked(control_input.get('no_key_repeat', False))
@@ -574,7 +578,6 @@ class SettingsDialog(QDialog):
         self.start_fps_spin.setValue(advanced.get('start_fps', 0))
         self.lock_orientation_spin.setValue(advanced.get('lock_video_orientation', -1))
         self.display_id_spin.setValue(advanced.get('display_id', 0))
-        self.tcpip_edit.setText(advanced.get('tcpip', ''))
         self.select_usb_check.setChecked(advanced.get('select_usb', False))
         self.select_tcpip_check.setChecked(advanced.get('select_tcpip', False))
         self.shortcut_mod_edit.setText(advanced.get('shortcut_mod', 'lctrl,lalt,lmeta'))
@@ -616,7 +619,7 @@ class SettingsDialog(QDialog):
                 # Настройки устройств ввода
                 'keyboard': self.keyboard_combo.currentData() or 'disabled',
                 'mouse': self.mouse_combo.currentData() or 'disabled',
-                'gamepad': self.gamepad_check.isChecked(),
+                'gamepad': self.gamepad_combo.currentData() or 'disabled',
                 'prefer_text': self.prefer_text_check.isChecked(),
                 'raw_key_events': self.raw_key_events_check.isChecked(),
                 'no_key_repeat': self.no_key_repeat_check.isChecked(),
@@ -636,7 +639,6 @@ class SettingsDialog(QDialog):
                 'start_fps': self.start_fps_spin.value(),
                 'lock_video_orientation': self.lock_orientation_spin.value(),
                 'display_id': self.display_id_spin.value(),
-                'tcpip': self.tcpip_edit.text(),
                 'select_usb': self.select_usb_check.isChecked(),
                 'select_tcpip': self.select_tcpip_check.isChecked(),
                 'shortcut_mod': self.shortcut_mod_edit.text()

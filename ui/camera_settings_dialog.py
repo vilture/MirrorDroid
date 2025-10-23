@@ -133,6 +133,46 @@ class CameraSettingsDialog(QDialog):
         advanced_group.setLayout(advanced_layout)
         layout.addWidget(advanced_group)
 
+        # Настройки отображения
+        display_title = self.localization_manager.tr("camera_settings.display_settings")
+        display_group = QGroupBox(display_title)
+        display_layout = QFormLayout()
+
+        # Поворот
+        self.rotation_combo = QComboBox()
+        self.rotation_combo.addItems(["0°", "90°", "180°", "270°"])
+        self.rotation_combo.setToolTip(self.localization_manager.tr("camera_settings.rotation_tooltip"))
+        rotation_label = self.localization_manager.tr("camera_settings.rotation")
+        display_layout.addRow(rotation_label, self.rotation_combo)
+
+        # Обрезка
+        self.crop_edit = QLineEdit()
+        self.crop_edit.setPlaceholderText(self.localization_manager.tr("camera_settings.crop_placeholder"))
+        self.crop_edit.setToolTip(self.localization_manager.tr("camera_settings.crop_tooltip"))
+        crop_label = self.localization_manager.tr("camera_settings.crop")
+        display_layout.addRow(crop_label, self.crop_edit)
+
+        # Зеркальное отображение
+        self.flip_check = QCheckBox()
+        self.flip_check.setToolTip(self.localization_manager.tr("camera_settings.flip_tooltip"))
+        flip_label = self.localization_manager.tr("camera_settings.flip")
+        display_layout.addRow(flip_label, self.flip_check)
+
+        # Полноэкранный режим
+        self.fullscreen_check = QCheckBox()
+        self.fullscreen_check.setToolTip(self.localization_manager.tr("camera_settings.fullscreen_tooltip"))
+        fullscreen_label = self.localization_manager.tr("camera_settings.fullscreen")
+        display_layout.addRow(fullscreen_label, self.fullscreen_check)
+
+        # Поверх всех окон
+        self.always_on_top_check = QCheckBox()
+        self.always_on_top_check.setToolTip(self.localization_manager.tr("camera_settings.always_on_top_tooltip"))
+        always_on_top_label = self.localization_manager.tr("camera_settings.always_on_top")
+        display_layout.addRow(always_on_top_label, self.always_on_top_check)
+
+        display_group.setLayout(display_layout)
+        layout.addWidget(display_group)
+
         # V4L2 настройки (только для Linux)
         self.v4l2_group = None
         current_system = platform.system().lower()
@@ -451,6 +491,15 @@ class CameraSettingsDialog(QDialog):
         self.camera_high_speed_check.setChecked(camera.get('camera_high_speed', False))
         self.camera_no_audio_check.setChecked(camera.get('camera_no_audio', False))  # По умолчанию False
 
+        # Настройки отображения
+        display = self.current_settings.get('display', {})
+        rotation_map = {0: 0, 90: 1, 180: 2, 270: 3}
+        self.rotation_combo.setCurrentIndex(rotation_map.get(display.get('rotation', 0), 0))
+        self.crop_edit.setText(display.get('crop', ''))
+        self.fullscreen_check.setChecked(display.get('fullscreen', False))
+        self.always_on_top_check.setChecked(display.get('always_on_top', False))
+        self.flip_check.setChecked(display.get('flip', False))
+
         # V4L2 настройки (только для Linux)
         if self.v4l2_enabled_check is not None:
             v4l2 = self.current_settings.get('v4l2', {})
@@ -465,6 +514,7 @@ class CameraSettingsDialog(QDialog):
 
     def get_settings(self) -> dict:
         """Получает текущие настройки из интерфейса"""
+        rotation_map = {0: 0, 1: 90, 2: 180, 3: 270}
         settings = {
             'camera': {
                 'camera_id': self.camera_id_combo.currentData() if self.camera_id_combo.currentData() else '',
@@ -473,6 +523,13 @@ class CameraSettingsDialog(QDialog):
                 'camera_ar': self.camera_ar_combo.currentText() if self.camera_ar_combo.currentText() and self.camera_ar_combo.currentText() != 'Автоматически' else '',
                 'camera_high_speed': self.camera_high_speed_check.isChecked(),
                 'camera_no_audio': self.camera_no_audio_check.isChecked()
+            },
+            'display': {
+                'rotation': rotation_map[self.rotation_combo.currentIndex()],
+                'crop': self.crop_edit.text(),
+                'fullscreen': self.fullscreen_check.isChecked(),
+                'always_on_top': self.always_on_top_check.isChecked(),
+                'flip': self.flip_check.isChecked()
             },
             'v4l2': {
                 'enabled': self.v4l2_enabled_check.isChecked() if self.v4l2_enabled_check else False,

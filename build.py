@@ -131,6 +131,15 @@ def build_application():
         '--hidden-import=sys',
         '--hidden-import=pathlib',
         '--hidden-import=platform',
+        # Добавляем зависимости для QR подключения
+        '--hidden-import=lyto',
+        '--hidden-import=lyto.cli',
+        '--hidden-import=qrcode',
+        '--hidden-import=qrcode.constants',
+        '--hidden-import=io',
+        '--hidden-import=tempfile',
+        '--hidden-import=random',
+        '--hidden-import=string',
         # Добавляем модули приложения
         '--hidden-import=core.localization',
         '--hidden-import=core.config_manager',
@@ -138,10 +147,12 @@ def build_application():
         '--hidden-import=core.scrcpy_manager',
         '--hidden-import=core.path_manager',
         '--hidden-import=core.utils',
+        '--hidden-import=core.qr_connection',
         '--hidden-import=ui.main_window',
         '--hidden-import=ui.settings_dialog',
         '--hidden-import=ui.camera_settings_dialog',
         '--hidden-import=ui.device_widget',
+        '--hidden-import=ui.qr_connection_dialog',
         'main.py'
     ]
 

@@ -163,3 +163,4 @@ dist/
 *.zip
 *.sh
 *.spec
+/scrcpy.hlp
