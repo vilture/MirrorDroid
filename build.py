@@ -133,6 +133,7 @@ def build_application():
         '--hidden-import=platform',
         # Добавляем зависимости для QR подключения
         '--hidden-import=lyto',
+        '--hidden-import=lyto.cli',
         '--hidden-import=qrcode',
         '--hidden-import=qrcode.constants',
         '--hidden-import=io',

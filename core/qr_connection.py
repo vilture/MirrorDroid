@@ -4,22 +4,12 @@ import tempfile
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 
 try:
-    # Импортируем lyto без cli, чтобы избежать парсинга аргументов командной строки
-    import lyto
+    from lyto import cli
     import qrcode
     from io import BytesIO
-    
-    # Проверяем, что мы не в процессе сборки PyInstaller
-    import sys
-    if hasattr(sys, 'frozen') or 'PyInstaller' in sys.modules:
-        # Во время сборки PyInstaller не импортируем cli
-        cli = None
-    else:
-        from lyto import cli
 except ImportError:
     cli = None
     qrcode = None
-    lyto = None
 
 
 class QRConnectionWorker(QThread):
@@ -38,15 +28,6 @@ class QRConnectionWorker(QThread):
 
     def run(self):
         """Запускает процесс QR подключения"""
-        # Импортируем cli во время выполнения, если он не был импортирован
-        global cli
-        try:
-            if cli is None and lyto is not None:
-                from lyto import cli as lyto_cli
-                cli = lyto_cli
-        except ImportError:
-            pass
-            
         if not cli or not qrcode:
             self.connection_error.emit("Библиотека lyto не установлена")
             return
